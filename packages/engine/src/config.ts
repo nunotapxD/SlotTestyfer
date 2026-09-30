@@ -26,6 +26,17 @@ export const PaySchema = z.object({
   pays: z.number().int().positive(),
 });
 
+export const FreeSpinsSchema = z.object({
+  /** Scatter symbol that triggers the feature. */
+  symbol: z.string(),
+  /** How many of that symbol, anywhere on the screen, trigger it. */
+  count: z.number().int().min(1),
+  /** Free rounds awarded. They are played at the same bet and do not retrigger. */
+  spins: z.number().int().min(1).max(100),
+  /** Every win during the free rounds is multiplied by this. */
+  multiplier: z.number().int().min(1).max(100).default(1),
+});
+
 export const GameConfigSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9-]+$/, 'game ids are kebab-case, e.g. fruits-96'),
@@ -38,6 +49,8 @@ export const GameConfigSchema = z
     /** Each payline lists the row index used on each reel, e.g. [1, 1, 1] is the middle row. */
     paylines: z.array(z.array(z.number().int().min(0))).min(1),
     paytable: z.array(PaySchema).min(1),
+    /** Optional free spins feature, triggered by scatters. */
+    freeSpins: FreeSpinsSchema.optional(),
   })
   .superRefine((config, ctx) => {
     const kinds = new Map<string, string>();
@@ -119,10 +132,29 @@ export const GameConfigSchema = z
       }
       seenPays.add(key);
     });
+
+    const feature = config.freeSpins;
+    if (feature) {
+      if (kinds.get(feature.symbol) !== 'scatter') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['freeSpins', 'symbol'],
+          message: `free spins must be triggered by a scatter symbol, ${feature.symbol} is not one`,
+        });
+      }
+      if (feature.count > reelCount * config.rows) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['freeSpins', 'count'],
+          message: `the screen has only ${reelCount * config.rows} positions, got ${feature.count}`,
+        });
+      }
+    }
   });
 
 export type GameSymbol = z.infer<typeof SymbolSchema>;
 export type Pay = z.infer<typeof PaySchema>;
+export type FreeSpins = z.infer<typeof FreeSpinsSchema>;
 export type GameConfig = z.infer<typeof GameConfigSchema>;
 
 /** Thrown when a game configuration is invalid. `issues` lists every problem found. */

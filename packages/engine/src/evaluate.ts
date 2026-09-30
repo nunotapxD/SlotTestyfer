@@ -21,6 +21,8 @@ export interface LineWin {
   readonly count: number;
   /** Multiplier of the line bet. */
   readonly pays: number;
+  /** How many of the winning symbols are wilds (all of them for a line of wilds). */
+  readonly wilds: number;
   readonly positions: readonly Position[];
 }
 
@@ -118,9 +120,13 @@ export function createEvaluator(config: GameConfig): Evaluator {
       const count = useBase ? baseCount : wildRun;
       const pays = useBase ? basePays : wildPays;
       const positions: Position[] = [];
-      for (let reel = 0; reel < count; reel++) positions.push([reel, payline[reel] ?? 0]);
+      let wilds = 0;
+      for (let reel = 0; reel < count; reel++) {
+        positions.push([reel, payline[reel] ?? 0]);
+        if (kindOf(symbols[reel] ?? '') === 'wild') wilds++;
+      }
 
-      lineWins.push({ payline: index, symbol, count, pays, positions });
+      lineWins.push({ payline: index, symbol, count, pays, wilds, positions });
       winLineBets += pays;
     }
 

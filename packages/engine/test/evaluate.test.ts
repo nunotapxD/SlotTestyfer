@@ -72,6 +72,7 @@ describe('line wins', () => {
       symbol: 'A',
       count: 3,
       pays: 10,
+      wilds: 0,
       positions: [
         [0, 1],
         [1, 1],
@@ -108,8 +109,10 @@ describe('line wins', () => {
     expect(win?.pays).toBe(10);
   });
 
-  it('lets several wilds complete a line', () => {
-    expect(lineWin('B W B W B').win?.pays).toBe(40);
+  it('lets several wilds complete a line, and counts them', () => {
+    const { win } = lineWin('B W B W B');
+    expect(win?.pays).toBe(40);
+    expect(win?.wilds).toBe(2);
   });
 
   it('extends leading wilds with the symbol they complete', () => {
@@ -128,7 +131,14 @@ describe('line wins', () => {
   });
 
   it('pays a line made only of wilds', () => {
-    expect(lineWin('W W W W W').win?.pays).toBe(1000);
+    const { win } = lineWin('W W W W W');
+    expect(win?.pays).toBe(1000);
+    expect(win?.wilds).toBe(5);
+  });
+
+  it('counts only the wilds inside the win', () => {
+    // Wild on reel 4 is past the break at reel 3, so it is not part of the win.
+    expect(lineWin('A W A C W').win?.wilds).toBe(1);
   });
 
   it('does not let a scatter take part in a line', () => {
@@ -144,6 +154,7 @@ describe('line wins', () => {
         symbol: 'A',
         count: 5,
         pays: 50,
+        wilds: 0,
         positions: [
           [0, 0],
           [1, 1],
