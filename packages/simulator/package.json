@@ -1,0 +1,24 @@
+{
+  "name": "@slottestyfer/simulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monte Carlo simulator, exact RTP analysis and certification verdict for SlotTestyfer games.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "slottestyfer-simulate": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@slottestyfer/engine": "0.1.0"
+  }
+}

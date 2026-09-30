@@ -1,0 +1,138 @@
+{
+  "id": "fruits-88",
+  "name": "Fruits 88",
+  "rows": 3,
+  "symbols": [
+    {
+      "id": "CHERRY",
+      "kind": "regular"
+    },
+    {
+      "id": "LEMON",
+      "kind": "regular"
+    },
+    {
+      "id": "BELL",
+      "kind": "regular"
+    },
+    {
+      "id": "SEVEN",
+      "kind": "regular"
+    },
+    {
+      "id": "WILD",
+      "kind": "wild"
+    },
+    {
+      "id": "STAR",
+      "kind": "scatter"
+    }
+  ],
+  "reels": [
+    [
+      "CHERRY",
+      "LEMON",
+      "CHERRY",
+      "BELL",
+      "LEMON",
+      "CHERRY",
+      "SEVEN",
+      "LEMON",
+      "CHERRY",
+      "WILD",
+      "LEMON",
+      "BELL",
+      "CHERRY",
+      "STAR",
+      "LEMON",
+      "CHERRY",
+      "BELL",
+      "LEMON",
+      "CHERRY",
+      "LEMON"
+    ],
+    [
+      "LEMON",
+      "CHERRY",
+      "BELL",
+      "CHERRY",
+      "LEMON",
+      "SEVEN",
+      "CHERRY",
+      "LEMON",
+      "WILD",
+      "CHERRY",
+      "BELL",
+      "LEMON",
+      "CHERRY",
+      "STAR",
+      "LEMON",
+      "CHERRY",
+      "LEMON",
+      "BELL",
+      "CHERRY",
+      "LEMON"
+    ],
+    [
+      "CHERRY",
+      "BELL",
+      "LEMON",
+      "CHERRY",
+      "LEMON",
+      "CHERRY",
+      "SEVEN",
+      "LEMON",
+      "BELL",
+      "CHERRY",
+      "WILD",
+      "LEMON",
+      "CHERRY",
+      "LEMON",
+      "STAR",
+      "CHERRY",
+      "BELL",
+      "LEMON",
+      "CHERRY",
+      "LEMON"
+    ]
+  ],
+  "paylines": [
+    [1, 1, 1],
+    [0, 0, 0],
+    [2, 2, 2],
+    [0, 1, 2],
+    [2, 1, 0]
+  ],
+  "paytable": [
+    {
+      "symbol": "CHERRY",
+      "count": 3,
+      "pays": 4
+    },
+    {
+      "symbol": "LEMON",
+      "count": 3,
+      "pays": 4
+    },
+    {
+      "symbol": "BELL",
+      "count": 3,
+      "pays": 20
+    },
+    {
+      "symbol": "SEVEN",
+      "count": 3,
+      "pays": 150
+    },
+    {
+      "symbol": "WILD",
+      "count": 3,
+      "pays": 100
+    },
+    {
+      "symbol": "STAR",
+      "count": 3,
+      "pays": 20
+    }
+  ]
+}
