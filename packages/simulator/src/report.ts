@@ -27,6 +27,19 @@ export interface Report {
     readonly rounds: number;
     readonly share: number;
   }[];
+  /** Where the RTP comes from. lines + scatters + freeSpins = rtp. */
+  readonly rtpByFeature: {
+    /** Line wins in the base spin. */
+    readonly lines: number;
+    /** Scatter wins in the base spin. */
+    readonly scatters: number;
+    /** Everything won during free spins. */
+    readonly freeSpins: number;
+    /** Line wins that needed a wild (base and free spins). Part of lines + freeSpins. */
+    readonly wildAssisted: number;
+  };
+  /** Share of rounds that triggered free spins (0 for games without them). */
+  readonly featureFrequency: number;
 }
 
 export function summarize(stats: SimStats, z = Z_95, confidence = 0.95): Report {
@@ -58,6 +71,13 @@ export function summarize(stats: SimStats, z = Z_95, confidence = 0.95): Report 
       const rounds = stats.histogram[i] ?? 0;
       return { label, rounds, share: rounds / n };
     }),
+    rtpByFeature: {
+      lines: stats.baseLineWin / lines / n,
+      scatters: stats.baseScatterWin / lines / n,
+      freeSpins: stats.freeSpinsWin / lines / n,
+      wildAssisted: stats.wildLineWin / lines / n,
+    },
+    featureFrequency: stats.triggers / n,
   };
 }
 
@@ -109,4 +129,15 @@ export function certify(report: Report, target: number, tolerance: number, z = Z
     reason: 'interval crosses a limit of the range',
     roundsNeeded,
   };
+}
+
+/**
+ * Verdict for an RTP known exactly (by formula or enumeration): there is no sampling error, so
+ * it is simply inside or outside target ± tolerance.
+ */
+export function certifyExact(rtp: number, target: number, tolerance: number): Verdict {
+  if (!(tolerance > 0)) throw new RangeError(`tolerance must be positive, got ${tolerance}`);
+  return Math.abs(rtp - target) <= tolerance
+    ? { status: 'PASS', target, tolerance, reason: 'exact RTP inside the range' }
+    : { status: 'FAIL', target, tolerance, reason: 'exact RTP outside the range' };
 }

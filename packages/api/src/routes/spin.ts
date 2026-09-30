@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { createRng, playRound } from '@slottestyfer/engine';
+import { createRng, playRound, type Evaluation } from '@slottestyfer/engine';
 import type { FastifyInstance } from 'fastify';
 import { ApiError, notFound } from '../errors.js';
 import { spinRoute } from '../schemas.js';
@@ -11,10 +11,19 @@ interface SpinBody {
   seed?: number;
 }
 
+/** Wins of one spin with their value in cents (multiplier applied for free spins). */
+function wins(evaluation: Evaluation, bet: number, lines: number, multiplier = 1) {
+  const lineBet = bet / lines;
+  return {
+    lineWins: evaluation.lineWins.map((w) => ({ ...w, win: w.pays * lineBet * multiplier })),
+    scatterWins: evaluation.scatterWins.map((w) => ({ ...w, win: w.pays * bet * multiplier })),
+  };
+}
+
 export function registerSpinRoutes(app: FastifyInstance, store: Store): void {
   app.post<{ Body: SpinBody }>('/spin', { schema: spinRoute }, async (request) => {
     const { gameId, bet } = request.body;
-    const game = store.getGame(gameId);
+    const game = await store.getGame(gameId);
     if (!game) throw notFound('game', gameId);
 
     // A fresh seed per round unless the caller wants to replay one.
@@ -29,17 +38,28 @@ export function registerSpinRoutes(app: FastifyInstance, store: Store): void {
     }
 
     const round = playRound(game.config, createRng(seed), bet);
-    const lineBet = bet / lines;
+    const feature = round.freeSpins;
     return {
       gameId,
       seed,
       bet,
       win: round.winCents,
-      multiplier: round.evaluation.multiplier,
+      multiplier: round.winCents / bet,
       stops: round.stops,
       screen: round.screen,
-      lineWins: round.evaluation.lineWins.map((w) => ({ ...w, win: w.pays * lineBet })),
-      scatterWins: round.evaluation.scatterWins.map((w) => ({ ...w, win: w.pays * bet })),
+      ...wins(round.evaluation, bet, lines),
+      freeSpins: feature
+        ? {
+            multiplier: feature.multiplier,
+            win: feature.winCents,
+            spins: feature.spins.map((s) => ({
+              stops: s.stops,
+              screen: s.screen,
+              win: s.winCents,
+              ...wins(s.evaluation, bet, lines, feature.multiplier),
+            })),
+          }
+        : null,
     };
   });
 }

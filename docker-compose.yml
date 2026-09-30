@@ -1,18 +1,37 @@
 name: slottestyfer
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: slottestyfer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-slottestyfer}
+      POSTGRES_DB: slottestyfer
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U slottestyfer -d slottestyfer']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   api:
-    build: .
+    build:
+      context: .
+      target: runtime
     image: slottestyfer:local
     ports:
       - '${PORT:-3000}:3000'
     environment:
-      DATABASE_PATH: /data/slottestyfer.db
+      DATABASE_URL: postgres://slottestyfer:${POSTGRES_PASSWORD:-slottestyfer}@postgres:5432/slottestyfer
       SIM_WORKERS: ${SIM_WORKERS:-}
       MAX_SPINS: ${MAX_SPINS:-100000000}
+      MAX_LIVE_RUNS: ${MAX_LIVE_RUNS:-4}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-    volumes:
-      - api-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -47,7 +66,9 @@ services:
   #   docker compose run --rm simulator --game games/fruits-88.json --spins 10e6 --target 96
   simulator:
     image: slottestyfer:local
-    build: .
+    build:
+      context: .
+      target: runtime
     profiles: [tools]
     entrypoint: ['node', 'packages/simulator/dist/cli.js']
     command:
@@ -65,4 +86,4 @@ services:
       - ./reports:/reports
 
 volumes:
-  api-data:
+  postgres-data:

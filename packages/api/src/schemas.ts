@@ -30,15 +30,53 @@ export const gameSummarySchema = {
     reels: { type: 'integer', example: 3 },
     rows: { type: 'integer', example: 3 },
     paylines: { type: 'integer', example: 5 },
+    freeSpins: { type: 'boolean', description: 'Has a free spins feature' },
+    rtp: { type: 'number', description: 'Exact RTP by formula, as a fraction' },
     createdAt: { type: 'string', format: 'date-time' },
   },
-  required: ['id', 'name', 'reels', 'rows', 'paylines', 'createdAt'],
+  required: ['id', 'name', 'reels', 'rows', 'paylines', 'freeSpins', 'rtp', 'createdAt'],
 } as const;
 
 const positionsSchema = {
   type: 'array',
   items: { type: 'array', items: { type: 'integer' }, minItems: 2, maxItems: 2 },
   description: '[reel, row] of each symbol in the win',
+} as const;
+
+const lineWinsSchema = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      payline: { type: 'integer' },
+      symbol: { type: 'string' },
+      count: { type: 'integer' },
+      pays: { type: 'integer' },
+      wilds: { type: 'integer' },
+      win: { type: 'integer', description: 'Cents, multiplier applied' },
+      positions: positionsSchema,
+    },
+  },
+} as const;
+
+const scatterWinsSchema = {
+  type: 'array',
+  items: {
+    type: 'object',
+    properties: {
+      symbol: { type: 'string' },
+      count: { type: 'integer' },
+      pays: { type: 'integer' },
+      win: { type: 'integer', description: 'Cents, multiplier applied' },
+      positions: positionsSchema,
+    },
+  },
+} as const;
+
+const screenSchema = {
+  type: 'array',
+  items: { type: 'array', items: { type: 'string' } },
+  description: 'screen[reel][row], row 0 at the top',
 } as const;
 
 export const simulationSchema = {
@@ -60,7 +98,7 @@ export const simulationSchema = {
     report: {
       type: ['object', 'null'],
       additionalProperties: true,
-      description: 'RTP, hit frequency, volatility, confidence interval, histogram',
+      description: 'RTP, hit frequency, volatility, confidence interval, histogram, breakdowns',
     },
     verdict: {
       type: ['object', 'null'],
@@ -72,7 +110,19 @@ export const simulationSchema = {
   required: ['id', 'gameId', 'spins', 'seed', 'status', 'roundsDone', 'progress', 'createdAt'],
 } as const;
 
-export const sharedSchemas = [errorSchema, gameSummarySchema, simulationSchema];
+export const liveStateSchema = {
+  $id: 'LiveRun',
+  type: 'object',
+  additionalProperties: true,
+  description: 'A live run: settings, status and the latest batch of numbers.',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    status: { type: 'string', enum: ['running', 'paused', 'finished', 'cancelled', 'failed'] },
+  },
+  required: ['id', 'status'],
+} as const;
+
+export const sharedSchemas = [errorSchema, gameSummarySchema, simulationSchema, liveStateSchema];
 
 const idParams = {
   type: 'object',
@@ -86,8 +136,12 @@ export const healthRoute = {
   response: {
     200: {
       type: 'object',
-      properties: { status: { type: 'string', enum: ['ok'] }, games: { type: 'integer' } },
-      required: ['status', 'games'],
+      properties: {
+        status: { type: 'string', enum: ['ok'] },
+        games: { type: 'integer' },
+        database: { type: 'string', enum: ['sqlite', 'postgres'] },
+      },
+      required: ['status', 'games', 'database'],
     },
   },
 } as const;
@@ -113,7 +167,8 @@ export const createGameRoute = {
   summary: 'Register a new game',
   description:
     'The body is a game configuration (see games/*.json). It is checked in full: symbols, ' +
-    'reel strips, paylines and paytable must be consistent. Every problem is listed in `issues`.',
+    'reel strips, paylines, paytable and free spins must be consistent. Every problem is listed ' +
+    'in `issues`.',
   body: { type: 'object', additionalProperties: true },
   response: { 201: { $ref: 'GameSummary#' }, 400: errorRef, 409: errorRef },
 } as const;
@@ -122,8 +177,9 @@ export const spinRoute = {
   tags: ['rounds'],
   summary: 'Play one round with fictional credits',
   description:
-    'Returns the screen, every win and the payout. Pass the returned seed to replay the round. ' +
-    'Amounts are in cents of fictional credits; the bet must split evenly across the paylines.',
+    'Returns the screen, every win and the payout, including any free spins the round ' +
+    'triggered. Pass the returned seed to replay the round exactly. Amounts are in cents of ' +
+    'fictional credits; the bet must split evenly across the paylines.',
   body: {
     type: 'object',
     additionalProperties: false,
@@ -141,38 +197,30 @@ export const spinRoute = {
         gameId: { type: 'string' },
         seed: { type: 'integer' },
         bet: { type: 'integer' },
-        win: { type: 'integer' },
+        win: { type: 'integer', description: 'Everything the round paid, free spins included' },
         multiplier: { type: 'number' },
         stops: { type: 'array', items: { type: 'integer' } },
-        screen: {
-          type: 'array',
-          items: { type: 'array', items: { type: 'string' } },
-          description: 'screen[reel][row], row 0 at the top',
-        },
-        lineWins: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              payline: { type: 'integer' },
-              symbol: { type: 'string' },
-              count: { type: 'integer' },
-              pays: { type: 'integer' },
-              win: { type: 'integer' },
-              positions: positionsSchema,
-            },
-          },
-        },
-        scatterWins: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              symbol: { type: 'string' },
-              count: { type: 'integer' },
-              pays: { type: 'integer' },
-              win: { type: 'integer' },
-              positions: positionsSchema,
+        screen: screenSchema,
+        lineWins: lineWinsSchema,
+        scatterWins: scatterWinsSchema,
+        freeSpins: {
+          type: ['object', 'null'],
+          description: 'Free spins triggered by this round, or null',
+          properties: {
+            multiplier: { type: 'integer' },
+            win: { type: 'integer' },
+            spins: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  stops: { type: 'array', items: { type: 'integer' } },
+                  screen: screenSchema,
+                  win: { type: 'integer' },
+                  lineWins: lineWinsSchema,
+                  scatterWins: scatterWinsSchema,
+                },
+              },
             },
           },
         },
@@ -224,6 +272,15 @@ export const getSimulationRoute = {
   response: { 200: { $ref: 'Simulation#' }, 404: errorRef },
 } as const;
 
+export const simulationCsvRoute = {
+  tags: ['simulations'],
+  summary: 'Report of a finished simulation as CSV',
+  description: 'Columns: section, name, value. Fractions stay fractions (0.9594).',
+  params: idParams,
+  produces: ['text/csv'],
+  response: { 404: errorRef, 409: errorRef },
+} as const;
+
 export const listSimulationsRoute = {
   tags: ['simulations'],
   summary: 'Most recent simulations',
@@ -236,4 +293,69 @@ export const listSimulationsRoute = {
     },
   },
   response: { 200: { type: 'array', items: { $ref: 'Simulation#' } } },
+} as const;
+
+export const createLiveRoute = {
+  tags: ['live'],
+  summary: 'Start a live run: the game plays continuously and streams its numbers',
+  description:
+    'Follow it with GET /live/{id}/events (Server-Sent Events). Batches arrive every 100 ms ' +
+    'with the running RTP, its 95% confidence interval, the live verdict, virtual players and ' +
+    'alerts. At most 4 runs can be active at once.',
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      gameId: { type: 'string', example: 'fruits-96' },
+      seed: { type: 'integer', minimum: 0, maximum: 4_294_967_295 },
+      target: { type: 'number', exclusiveMinimum: 0, maximum: 10, default: 0.96 },
+      tolerance: { type: 'number', exclusiveMinimum: 0, maximum: 1, default: 0.005 },
+      players: { type: 'integer', minimum: 0, maximum: 20, default: 8 },
+      roundsPerSecond: {
+        type: 'integer',
+        minimum: 0,
+        maximum: 10_000_000,
+        default: 20_000,
+        description: '0 = as fast as possible',
+      },
+      maxRounds: { type: 'integer', minimum: 1, maximum: 1_000_000_000, default: 50_000_000 },
+    },
+    required: ['gameId'],
+  },
+  response: { 201: { $ref: 'LiveRun#' }, 400: errorRef, 404: errorRef, 429: errorRef },
+} as const;
+
+export const liveIdRoute = {
+  tags: ['live'],
+  params: idParams,
+  response: { 200: { $ref: 'LiveRun#' }, 404: errorRef },
+} as const;
+
+export const liveSpeedRoute = {
+  tags: ['live'],
+  summary: 'Change the speed of a live run',
+  params: idParams,
+  body: {
+    type: 'object',
+    additionalProperties: false,
+    properties: { roundsPerSecond: { type: 'integer', minimum: 0, maximum: 10_000_000 } },
+    required: ['roundsPerSecond'],
+  },
+  response: { 200: { $ref: 'LiveRun#' }, 404: errorRef },
+} as const;
+
+export const liveEventsRoute = {
+  tags: ['live'],
+  summary: 'Server-Sent Events stream of a live run',
+  description:
+    'First a `snapshot` event (state, history, alerts), then `batch` and `status` events. Every ' +
+    'event has an increasing id. The stream ends when the run finishes or is cancelled.',
+  params: idParams,
+  produces: ['text/event-stream'],
+} as const;
+
+export const listLiveRoute = {
+  tags: ['live'],
+  summary: 'Live runs (active, and finished in the last 10 minutes)',
+  response: { 200: { type: 'array', items: { $ref: 'LiveRun#' } } },
 } as const;

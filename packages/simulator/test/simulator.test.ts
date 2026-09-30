@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { parseGameConfig, type Evaluation } from '@slottestyfer/engine';
+import { parseGameConfig, type RoundOutcome } from '@slottestyfer/engine';
 import { describe, expect, it } from 'vitest';
 import {
   analyzeExact,
@@ -41,13 +41,20 @@ const coin = parseGameConfig({
   paytable: [{ symbol: 'A', count: 2, pays: 4 }],
 });
 
-function evaluation(winLineBets: number, lines: number): Evaluation {
-  return {
+/** A base-game round that won `winLineBets` on one line (with `wilds` wilds in it). */
+function evaluation(winLineBets: number, lines: number, wilds = 0): RoundOutcome {
+  const evaluation = {
     lineWins:
       winLineBets > 0
-        ? [{ payline: 0, symbol: 'A', count: 3, pays: winLineBets, positions: [] }]
+        ? [{ payline: 0, symbol: 'A', count: 3, pays: winLineBets, wilds, positions: [] }]
         : [],
     scatterWins: [],
+    winLineBets,
+    multiplier: winLineBets / lines,
+  };
+  return {
+    base: { stops: [], screen: [], evaluation },
+    freeSpins: null,
     winLineBets,
     multiplier: winLineBets / lines,
   };
@@ -69,6 +76,8 @@ describe('stats', () => {
     expect(stats.hits).toBe(3);
     expect(stats.maxWin).toBe(20);
     expect(stats.bySymbol).toEqual({ A: 35 });
+    expect(stats.baseLineWin).toBe(35);
+    expect(stats.triggers).toBe(0);
     // multipliers 0, 1, 0, 4, 2
     expect(stats.histogram).toEqual([2, 0, 1, 2, 0, 0]);
   });
@@ -126,6 +135,8 @@ describe('certify', () => {
       high: rtp + 1.96 * standardError,
     },
     histogram: [],
+    rtpByFeature: { lines: rtp, scatters: 0, freeSpins: 0, wildAssisted: 0 },
+    featureFrequency: 0,
   });
 
   it('passes when the whole interval is inside target ± tolerance', () => {

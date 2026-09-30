@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light dark" />
     <meta
       name="description"
-      content="SlotTestyfer: a slot game engine and RTP lab. Play rounds and run Monte Carlo simulations with fictional credits."
+      content="SlotTestyfer: a slot game engine and RTP lab. Play rounds, run Monte Carlo simulations, analyse sessions and watch games live, with fictional credits."
     />
     <title>SlotTestyfer</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -20,6 +20,11 @@
           <p>Slot engine &amp; RTP lab</p>
         </div>
       </div>
+      <nav class="tabs" aria-label="Views">
+        <a href="#play" data-view="play">Play &amp; simulate</a>
+        <a href="#analyze" data-view="analyze">Analyze</a>
+        <a href="#live" data-view="live">Live</a>
+      </nav>
       <p class="notice" role="note">
         <strong>Fictional credits only.</strong> No real money, no accounts, no payments.
       </p>
@@ -27,9 +32,13 @@
 
     <div class="api-error" id="api-error" role="alert" hidden></div>
 
-    <main class="layout">
-      <section class="panel" id="play" aria-labelledby="play-title"></section>
-      <section class="panel" id="simulate" aria-labelledby="simulate-title"></section>
+    <main>
+      <div class="layout view" id="view-play">
+        <section class="panel" id="play" aria-labelledby="play-title"></section>
+        <section class="panel" id="simulate" aria-labelledby="simulate-title"></section>
+      </div>
+      <div class="view wide" id="view-analyze" hidden></div>
+      <div class="view wide" id="view-live" hidden></div>
     </main>
 
     <footer class="footer">

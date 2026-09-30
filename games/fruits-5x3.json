@@ -1,0 +1,380 @@
+{
+  "id": "fruits-5x3",
+  "name": "Fruits 5x3",
+  "rows": 3,
+  "symbols": [
+    {
+      "id": "CHERRY",
+      "kind": "regular"
+    },
+    {
+      "id": "LEMON",
+      "kind": "regular"
+    },
+    {
+      "id": "ORANGE",
+      "kind": "regular"
+    },
+    {
+      "id": "PLUM",
+      "kind": "regular"
+    },
+    {
+      "id": "BELL",
+      "kind": "regular"
+    },
+    {
+      "id": "BAR",
+      "kind": "regular"
+    },
+    {
+      "id": "SEVEN",
+      "kind": "regular"
+    },
+    {
+      "id": "WILD",
+      "kind": "wild"
+    },
+    {
+      "id": "STAR",
+      "kind": "scatter"
+    }
+  ],
+  "reels": [
+    [
+      "ORANGE",
+      "BELL",
+      "LEMON",
+      "PLUM",
+      "BELL",
+      "LEMON",
+      "STAR",
+      "ORANGE",
+      "BAR",
+      "LEMON",
+      "CHERRY",
+      "PLUM",
+      "CHERRY",
+      "CHERRY",
+      "ORANGE",
+      "BELL",
+      "CHERRY",
+      "WILD",
+      "PLUM",
+      "ORANGE",
+      "PLUM",
+      "CHERRY",
+      "ORANGE",
+      "CHERRY",
+      "CHERRY",
+      "PLUM",
+      "SEVEN",
+      "CHERRY",
+      "CHERRY",
+      "CHERRY",
+      "CHERRY",
+      "BELL"
+    ],
+    [
+      "ORANGE",
+      "BELL",
+      "ORANGE",
+      "WILD",
+      "CHERRY",
+      "LEMON",
+      "CHERRY",
+      "LEMON",
+      "STAR",
+      "BELL",
+      "LEMON",
+      "LEMON",
+      "PLUM",
+      "BELL",
+      "SEVEN",
+      "CHERRY",
+      "PLUM",
+      "BAR",
+      "ORANGE",
+      "ORANGE",
+      "CHERRY",
+      "BELL",
+      "CHERRY",
+      "ORANGE",
+      "CHERRY",
+      "PLUM",
+      "PLUM",
+      "CHERRY",
+      "CHERRY",
+      "CHERRY",
+      "CHERRY",
+      "PLUM"
+    ],
+    [
+      "BAR",
+      "STAR",
+      "PLUM",
+      "CHERRY",
+      "LEMON",
+      "WILD",
+      "PLUM",
+      "ORANGE",
+      "CHERRY",
+      "LEMON",
+      "LEMON",
+      "CHERRY",
+      "CHERRY",
+      "CHERRY",
+      "ORANGE",
+      "ORANGE",
+      "PLUM",
+      "PLUM",
+      "ORANGE",
+      "BELL",
+      "PLUM",
+      "BELL",
+      "LEMON",
+      "CHERRY",
+      "BELL",
+      "CHERRY",
+      "CHERRY",
+      "BELL",
+      "LEMON",
+      "SEVEN",
+      "ORANGE",
+      "CHERRY"
+    ],
+    [
+      "PLUM",
+      "PLUM",
+      "ORANGE",
+      "BELL",
+      "CHERRY",
+      "BAR",
+      "WILD",
+      "CHERRY",
+      "CHERRY",
+      "BELL",
+      "CHERRY",
+      "PLUM",
+      "BELL",
+      "CHERRY",
+      "ORANGE",
+      "LEMON",
+      "ORANGE",
+      "CHERRY",
+      "SEVEN",
+      "LEMON",
+      "LEMON",
+      "ORANGE",
+      "BELL",
+      "LEMON",
+      "STAR",
+      "LEMON",
+      "PLUM",
+      "CHERRY",
+      "ORANGE",
+      "PLUM",
+      "LEMON",
+      "CHERRY"
+    ],
+    [
+      "PLUM",
+      "ORANGE",
+      "LEMON",
+      "BELL",
+      "CHERRY",
+      "CHERRY",
+      "BAR",
+      "ORANGE",
+      "ORANGE",
+      "CHERRY",
+      "CHERRY",
+      "LEMON",
+      "PLUM",
+      "PLUM",
+      "LEMON",
+      "WILD",
+      "SEVEN",
+      "CHERRY",
+      "BELL",
+      "PLUM",
+      "STAR",
+      "LEMON",
+      "CHERRY",
+      "PLUM",
+      "BELL",
+      "ORANGE",
+      "CHERRY",
+      "LEMON",
+      "LEMON",
+      "BAR",
+      "BELL",
+      "ORANGE"
+    ]
+  ],
+  "paylines": [
+    [1, 1, 1, 1, 1],
+    [0, 0, 0, 0, 0],
+    [2, 2, 2, 2, 2],
+    [0, 1, 2, 1, 0],
+    [2, 1, 0, 1, 2],
+    [0, 0, 1, 2, 2],
+    [2, 2, 1, 0, 0],
+    [1, 0, 0, 0, 1],
+    [1, 2, 2, 2, 1],
+    [0, 1, 1, 1, 0],
+    [2, 1, 1, 1, 2],
+    [1, 0, 1, 2, 1],
+    [1, 2, 1, 0, 1],
+    [0, 1, 0, 1, 0],
+    [2, 1, 2, 1, 2],
+    [1, 1, 0, 1, 1],
+    [1, 1, 2, 1, 1],
+    [0, 2, 0, 2, 0],
+    [2, 0, 2, 0, 2],
+    [0, 2, 2, 2, 0]
+  ],
+  "paytable": [
+    {
+      "symbol": "CHERRY",
+      "count": 3,
+      "pays": 5
+    },
+    {
+      "symbol": "CHERRY",
+      "count": 4,
+      "pays": 15
+    },
+    {
+      "symbol": "CHERRY",
+      "count": 5,
+      "pays": 40
+    },
+    {
+      "symbol": "LEMON",
+      "count": 3,
+      "pays": 5
+    },
+    {
+      "symbol": "LEMON",
+      "count": 4,
+      "pays": 15
+    },
+    {
+      "symbol": "LEMON",
+      "count": 5,
+      "pays": 40
+    },
+    {
+      "symbol": "ORANGE",
+      "count": 3,
+      "pays": 10
+    },
+    {
+      "symbol": "ORANGE",
+      "count": 4,
+      "pays": 25
+    },
+    {
+      "symbol": "ORANGE",
+      "count": 5,
+      "pays": 60
+    },
+    {
+      "symbol": "PLUM",
+      "count": 3,
+      "pays": 10
+    },
+    {
+      "symbol": "PLUM",
+      "count": 4,
+      "pays": 25
+    },
+    {
+      "symbol": "PLUM",
+      "count": 5,
+      "pays": 60
+    },
+    {
+      "symbol": "BELL",
+      "count": 3,
+      "pays": 15
+    },
+    {
+      "symbol": "BELL",
+      "count": 4,
+      "pays": 50
+    },
+    {
+      "symbol": "BELL",
+      "count": 5,
+      "pays": 150
+    },
+    {
+      "symbol": "BAR",
+      "count": 3,
+      "pays": 25
+    },
+    {
+      "symbol": "BAR",
+      "count": 4,
+      "pays": 100
+    },
+    {
+      "symbol": "BAR",
+      "count": 5,
+      "pays": 300
+    },
+    {
+      "symbol": "SEVEN",
+      "count": 3,
+      "pays": 50
+    },
+    {
+      "symbol": "SEVEN",
+      "count": 4,
+      "pays": 250
+    },
+    {
+      "symbol": "SEVEN",
+      "count": 5,
+      "pays": 1000
+    },
+    {
+      "symbol": "WILD",
+      "count": 3,
+      "pays": 50
+    },
+    {
+      "symbol": "WILD",
+      "count": 4,
+      "pays": 250
+    },
+    {
+      "symbol": "WILD",
+      "count": 5,
+      "pays": 2500
+    },
+    {
+      "symbol": "STAR",
+      "count": 3,
+      "pays": 2
+    },
+    {
+      "symbol": "STAR",
+      "count": 4,
+      "pays": 10
+    },
+    {
+      "symbol": "STAR",
+      "count": 5,
+      "pays": 50
+    }
+  ],
+  "freeSpins": {
+    "symbol": "STAR",
+    "count": 3,
+    "spins": 15,
+    "multiplier": 3
+  }
+}

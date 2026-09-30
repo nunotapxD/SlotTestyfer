@@ -9,3 +9,5 @@ coverage
 !README.md
 reports
 data
+test-results
+playwright-report

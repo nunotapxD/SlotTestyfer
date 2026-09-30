@@ -1,0 +1,25 @@
+{
+  "name": "@slottestyfer/analytics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Data analysis of SlotTestyfer games: percentiles, sessions, losing streaks, drawdowns, comparisons and CSV/JSON export.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "slottestyfer-analyze": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@slottestyfer/engine": "0.1.0",
+    "@slottestyfer/simulator": "0.1.0"
+  }
+}

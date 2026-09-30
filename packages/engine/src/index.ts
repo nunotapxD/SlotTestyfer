@@ -1,9 +1,11 @@
 export { ENGINE_VERSION, formatCredits } from './version.js';
 export { createRng, deriveSeed, type Rng } from './rng.js';
 export {
+  FreeSpinsSchema,
   GameConfigError,
   GameConfigSchema,
   parseGameConfig,
+  type FreeSpins,
   type GameConfig,
   type GameSymbol,
   type Pay,
@@ -18,4 +20,15 @@ export {
   type Position,
   type ScatterWin,
 } from './evaluate.js';
-export { createRoundPlayer, playRound, type RoundPlayer, type RoundResult } from './round.js';
+export {
+  countSymbol,
+  createRoundEngine,
+  createRoundPlayer,
+  playRound,
+  type FreeSpinsOutcome,
+  type RoundEngine,
+  type RoundOutcome,
+  type RoundPlayer,
+  type RoundResult,
+  type SpinOutcome,
+} from './round.js';

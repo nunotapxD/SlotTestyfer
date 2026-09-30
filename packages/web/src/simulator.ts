@@ -169,6 +169,50 @@ function histogramChart(report: Report): SVGSVGElement {
   );
 }
 
+/** Where the RTP comes from: base line wins, base scatters and free spins, as one stacked bar. */
+function featureChart(report: Report): HTMLElement {
+  const parts = [
+    { label: 'Line wins', value: report.rtpByFeature.lines, color: 'var(--accent)' },
+    { label: 'Scatters', value: report.rtpByFeature.scatters, color: 'var(--gold)' },
+    { label: 'Free spins', value: report.rtpByFeature.freeSpins, color: 'var(--violet)' },
+  ].filter((p) => p.value > 0);
+  const total = parts.reduce((sum, p) => sum + p.value, 0) || 1;
+  return h(
+    'div',
+    { class: 'feature-chart' },
+    h(
+      'div',
+      {
+        class: 'stack',
+        role: 'img',
+        'aria-label': parts.map((p) => `${p.label} ${formatPercent(p.value)}`).join(', '),
+      },
+      ...parts.map((p) =>
+        h('span', { style: `width: ${(p.value / total) * 100}%; background: ${p.color}` }),
+      ),
+    ),
+    h(
+      'ul',
+      { class: 'legend' },
+      ...parts.map((p) =>
+        h(
+          'li',
+          {},
+          h('i', { style: `background: ${p.color}` }),
+          p.label,
+          h('b', { class: 'num' }, formatPercent(p.value)),
+        ),
+      ),
+      h(
+        'li',
+        { class: 'muted' },
+        'Line wins that needed a wild',
+        h('b', { class: 'num' }, formatPercent(report.rtpByFeature.wildAssisted)),
+      ),
+    ),
+  );
+}
+
 function symbolChart(report: Report): HTMLElement {
   const max = Math.max(0, ...report.rtpBySymbol.map((r) => r.rtp));
   return h(
@@ -359,7 +403,19 @@ export function mountSimulator(
         h(
           'div',
           {},
-          h('div', { class: 'hero-label' }, `RTP · ${formatInt(report.rounds)} rounds`),
+          h(
+            'div',
+            { class: 'hero-label' },
+            `RTP · ${formatInt(report.rounds)} rounds · `,
+            h(
+              'a',
+              {
+                href: api.simulationCsvUrl(sim.id),
+                download: `${sim.gameId}-${sim.id.slice(0, 8)}.csv`,
+              },
+              'CSV',
+            ),
+          ),
           h('div', { class: 'hero-rtp' }, formatPercent(report.rtp, 3)),
           h(
             'div',
@@ -441,6 +497,21 @@ export function mountSimulator(
           h('dt', {}, 'Volatility'),
           h('dd', {}, report.stdDev.toFixed(2), h('small', {}, 'std dev per round, in bets')),
         ),
+        ...(report.featureFrequency > 0
+          ? [
+              h(
+                'div',
+                { class: 'stat' },
+                h('dt', {}, 'Free spins'),
+                h(
+                  'dd',
+                  {},
+                  `1 in ${formatInt(Math.round(1 / report.featureFrequency))}`,
+                  h('small', {}, `${formatPercent(report.featureFrequency, 3)} of rounds`),
+                ),
+              ),
+            ]
+          : []),
         h(
           'div',
           { class: 'stat' },
@@ -457,6 +528,7 @@ export function mountSimulator(
           ),
         ),
       ),
+      h('div', { class: 'chart' }, h('h3', {}, 'Where the RTP comes from'), featureChart(report)),
       h(
         'div',
         { class: 'charts' },
