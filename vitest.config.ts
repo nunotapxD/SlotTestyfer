@@ -8,6 +8,9 @@ export default defineConfig({
       '@slottestyfer/engine': fileURLToPath(
         new URL('./packages/engine/src/index.ts', import.meta.url),
       ),
+      '@slottestyfer/simulator': fileURLToPath(
+        new URL('./packages/simulator/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {
