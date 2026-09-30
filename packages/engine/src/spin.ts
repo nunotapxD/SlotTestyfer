@@ -21,22 +21,25 @@ export interface SpinResult {
  * starting at its stop, wrapping around the end of the strip like a physical reel.
  */
 export function screenFromStops(config: GameConfig, stops: readonly number[]): Screen {
-  if (stops.length !== config.reels.length) {
-    throw new RangeError(`expected ${config.reels.length} stops, got ${stops.length}`);
+  const reels = config.reels;
+  if (stops.length !== reels.length) {
+    throw new RangeError(`expected ${reels.length} stops, got ${stops.length}`);
   }
-  return config.reels.map((strip, reel) => {
+  // Plain loops: this runs once per simulated round, so it avoids closures and callbacks.
+  const screen: string[][] = new Array<string[]>(reels.length);
+  for (let reel = 0; reel < reels.length; reel++) {
+    const strip = reels[reel] ?? [];
     const stop = stops[reel] ?? -1;
     if (!Number.isInteger(stop) || stop < 0 || stop >= strip.length) {
       throw new RangeError(`stop ${stop} is outside reel ${reel} (0 to ${strip.length - 1})`);
     }
-    return Array.from({ length: config.rows }, (_, row) => {
-      const symbol = strip[(stop + row) % strip.length];
-      if (symbol === undefined) {
-        throw new Error(`reel ${reel} has no symbol at ${(stop + row) % strip.length}`);
-      }
-      return symbol;
-    });
-  });
+    const column: string[] = new Array<string>(config.rows);
+    for (let row = 0; row < config.rows; row++) {
+      column[row] = strip[(stop + row) % strip.length] ?? '';
+    }
+    screen[reel] = column;
+  }
+  return screen;
 }
 
 /**
@@ -44,6 +47,10 @@ export function screenFromStops(config: GameConfig, stops: readonly number[]): S
  * appears is controlled only by how many times it is placed on the strip.
  */
 export function spin(config: GameConfig, rng: Rng): SpinResult {
-  const stops = config.reels.map((strip) => rng.nextInt(strip.length));
+  const reels = config.reels;
+  const stops: number[] = new Array<number>(reels.length);
+  for (let reel = 0; reel < reels.length; reel++) {
+    stops[reel] = rng.nextInt(reels[reel]?.length ?? 1);
+  }
   return { stops, screen: screenFromStops(config, stops) };
 }

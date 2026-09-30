@@ -3,7 +3,9 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    // The engine is pure logic: no Node.js APIs, so it can also run in a browser.
+    "types": []
   },
   "include": ["src"]
 }

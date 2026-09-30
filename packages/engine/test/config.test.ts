@@ -121,6 +121,12 @@ describe('parseGameConfig', () => {
     expect(issues.join()).toMatch(/paytable\.2\.pays/);
   });
 
+  it('rejects fractional multipliers, so payouts stay whole cents', () => {
+    const config = validConfig();
+    config.paytable.push({ symbol: 'B', count: 3, pays: 2.5 });
+    expect(issuesOf(config).join()).toMatch(/paytable\.2\.pays/);
+  });
+
   it('reports every problem at once', () => {
     const config = validConfig();
     config.reels[0] = ['A', 'X', 'Y'];

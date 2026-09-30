@@ -19,8 +19,11 @@ export const PaySchema = z.object({
   symbol: z.string(),
   /** How many matching symbols are needed (from the leftmost reel, or anywhere for scatters). */
   count: z.number().int().min(1),
-  /** Multiplier. Line pays multiply the line bet; scatter pays multiply the total bet. */
-  pays: z.number().positive(),
+  /**
+   * Whole-number multiplier. Line pays multiply the line bet; scatter pays multiply the total
+   * bet. Whole numbers keep every payout an exact number of cents.
+   */
+  pays: z.number().int().positive(),
 });
 
 export const GameConfigSchema = z
