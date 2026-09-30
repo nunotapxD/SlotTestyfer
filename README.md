@@ -13,11 +13,12 @@ PASS / FAIL / INCONCLUSIVE verdict against a target RTP, the way a game is check
 | 0     | Monorepo, TypeScript strict, lint, tests, CI, Docker           | done  |
 | 1     | Game engine: seeded RNG, config, spin, paylines, wild, scatter | done  |
 | 2     | Monte Carlo simulator, exact RTP, worker threads, verdict, CLI | done  |
-| 3     | Fastify API, persistence, Docker Compose                       | next  |
+| 3     | Fastify API, SQLite, background simulations, OpenAPI, Docker   | done  |
+| 4     | Web interface: reels and results dashboard                     | next  |
 
 ## Quick start
 
-Requires Node.js 22+.
+Requires Node.js 22.13+ (for the built-in SQLite).
 
 ```bash
 npm install
@@ -36,12 +37,47 @@ Volatility     2.133 (std dev per round, in total bets)
 Verdict        PASS  target 96.00% ± 0.50%: confidence interval inside the range
 ```
 
-Run the same checks inside Docker:
+## API
 
 ```bash
-docker build -t slottestyfer .
-docker run --rm slottestyfer
+npm run api                  # http://localhost:3000, docs at http://localhost:3000/docs
+docker compose up -d         # same, in a container, with the database in a volume
 ```
+
+| Endpoint                | What it does                                                 |
+| ----------------------- | ------------------------------------------------------------ |
+| `GET /games`            | List the games                                               |
+| `GET /games/{id}`       | Full configuration of a game                                 |
+| `POST /games`           | Register a game (validated; every problem listed on 400)     |
+| `POST /spin`            | One round with fictional credits; returns the seed to replay |
+| `POST /simulations`     | Start a simulation in the background (202 + id)              |
+| `GET /simulations/{id}` | Status, progress, report and verdict                         |
+| `GET /simulations`      | Most recent simulations, optionally for one game             |
+| `GET /health`           | Liveness check used by Docker                                |
+
+```bash
+curl -X POST localhost:3000/simulations -H 'content-type: application/json' \
+  -d '{"gameId":"fruits-96","spins":10000000,"seed":42,"target":0.96}'
+# -> 202 {"id":"…","status":"queued",…}
+curl localhost:3000/simulations/<id>
+# -> {"status":"done","progress":1,"report":{"rtp":0.9597,…},"verdict":{"status":"PASS",…}}
+```
+
+Simulations run one at a time on worker threads, so the API keeps answering while they run.
+Progress is saved after every chunk. If the server stops mid-simulation, it is marked as failed on
+the next start and anything still queued runs.
+
+## Docker
+
+```bash
+docker compose up -d                   # API with a healthcheck and a volume for the database
+docker compose run --rm simulator      # one-off simulation, JSON report in ./reports
+docker build --target test -t slottestyfer:test . && docker run --rm slottestyfer:test
+```
+
+The image is multi-stage: the runtime stage has only production dependencies and compiled code,
+and runs as the unprivileged `node` user. Pushing a tag such as `v1.0.0` publishes it to GitHub
+Container Registry. Settings are in `.env.example`.
 
 ## How it works
 
@@ -53,12 +89,17 @@ packages/
 │   spin.ts       reel stops -> visible screen
 │   evaluate.ts   line wins, wilds, scatters
 │   round.ts      bet validation and payout in whole cents
-└─ simulator/   Monte Carlo and analysis
-    stats.ts      running totals (constant memory, exact integers)
-    report.ts     RTP, hit frequency, volatility, confidence interval, verdict
-    exact.ts      exact RTP by playing every stop combination
-    simulate.ts   chunking and the worker thread pool
-    cli.ts        command line
+├─ simulator/   Monte Carlo and analysis
+│   stats.ts      running totals (constant memory, exact integers)
+│   report.ts     RTP, hit frequency, volatility, confidence interval, verdict
+│   exact.ts      exact RTP by playing every stop combination
+│   simulate.ts   chunking and the worker thread pool
+│   cli.ts        command line
+└─ api/         HTTP API (Fastify)
+    store.ts      SQLite persistence (node:sqlite) behind a Store interface
+    runner.ts     background simulation queue
+    app.ts        routes, validation, errors, OpenAPI
+    server.ts     configuration from the environment, graceful shutdown
 games/          game configurations (JSON)
 ```
 
