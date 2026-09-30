@@ -1,0 +1,19 @@
+# Render Blueprint: the all-in-one image (API + web page) on the free plan.
+# The free plan has no persistent disk, so the SQLite database starts empty after each deploy
+# (the bundled games are loaded again on start). Use a paid disk or DATABASE_URL to keep data.
+services:
+  - type: web
+    name: slottestyfer
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_PATH
+        value: /tmp/slottestyfer.db
+      - key: MAX_SPINS
+        value: '10000000'
+      - key: MAX_LIVE_RUNS
+        value: '2'
+      - key: LOG_LEVEL
+        value: info

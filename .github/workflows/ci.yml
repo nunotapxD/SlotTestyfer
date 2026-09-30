@@ -9,6 +9,19 @@ on:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    # A real PostgreSQL, so the store tests run against it as well as SQLite.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://test:test@localhost:5432/test
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -19,11 +32,39 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm run build
-      - run: npm test
-      # Certification gate: fails the build if the game stops paying 96% ± 0.5%.
-      # The seed is fixed and the result does not depend on the number of cores, so this is stable.
-      - name: Certify fruits-96
+      # Tests with coverage; fails if the engine drops below the thresholds in vitest.config.ts.
+      - run: npm run coverage
+      - name: Coverage summary
+        if: always()
+        run: |
+          node -e "const t=require('./coverage/coverage-summary.json').total; \
+            console.log('| | % |\n|---|---|\n' + ['lines','statements','functions','branches'] \
+            .map(k => '| ' + k + ' | ' + t[k].pct + ' |').join('\n'))" >> "$GITHUB_STEP_SUMMARY" || true
+      # Certification gates: the build fails if a game stops paying 96% ± 0.5%.
+      # Seeds are fixed and results do not depend on the number of cores, so these are stable.
+      - name: Certify fruits-96 by simulation
         run: npm run simulate -- --game games/fruits-96.json --spins 5000000 --seed 42 --target 96
+      - name: Certify fruits-5x3 by exact formula
+        run: npm run simulate -- --game games/fruits-5x3.json --exact --target 96
+
+  e2e:
+    runs-on: ubuntu-24.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
 
   docker:
     runs-on: ubuntu-24.04
@@ -34,27 +75,54 @@ jobs:
         run: |
           docker build --target test -t slottestyfer:test .
           docker run --rm slottestyfer:test
-      - name: Start the stack (API + web) and wait until healthy
+      - name: Start the stack (PostgreSQL + API + web) and wait until healthy
         run: docker compose up -d --build --wait
       - name: Smoke test through the web container
         run: |
           curl -fsS localhost:8080/ | grep -q '<title>SlotTestyfer</title>'
-          curl -fsS localhost:8080/api/health
+          curl -fsS localhost:8080/api/health | grep -q '"database":"postgres"'
           curl -fsS -X POST localhost:8080/api/spin \
             -H 'content-type: application/json' \
-            -d '{"gameId":"fruits-96","bet":500,"seed":42}'
+            -d '{"gameId":"fruits-5x3","bet":100,"seed":821}' | grep -q '"freeSpins":{'
+          # A live run streams events through nginx.
+          id=$(curl -fsS -X POST localhost:8080/api/live -H 'content-type: application/json' \
+            -d '{"gameId":"fruits-96","roundsPerSecond":10000}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).id')
+          curl -sN --max-time 3 "localhost:8080/api/live/$id/events" | grep -q 'event: batch'
+          curl -fsS -X POST "localhost:8080/api/live/$id/cancel" > /dev/null
+      - name: Smoke test the all-in-one image
+        run: |
+          docker build -t slottestyfer:app .
+          docker run -d --name app -p 4000:3000 slottestyfer:app
+          for i in $(seq 1 30); do
+            [ "$(docker inspect -f '{{.State.Health.Status}}' app)" = healthy ] && break
+            sleep 2
+          done
+          curl -fsS localhost:4000/ | grep -q '<title>SlotTestyfer</title>'
+          curl -fsS localhost:4000/api/games | grep -q fruits-96
       - name: Logs
         if: always()
-        run: docker compose logs || true
+        run: |
+          docker compose logs || true
+          docker logs app || true
 
   publish:
-    # Publishes the image to GitHub Container Registry when a version tag is pushed (v1.2.3).
+    # Publishes the images to GitHub Container Registry when a version tag is pushed (v1.2.3):
+    # ghcr.io/<owner>/<repo> (API), <repo>-web (web page) and <repo>-app (all in one).
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
-    needs: [check, docker]
+    needs: [check, e2e, docker]
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        include:
+          - target: runtime
+            suffix: ''
+          - target: web
+            suffix: '-web'
+          - target: app
+            suffix: '-app'
     steps:
       - uses: actions/checkout@v5
       - uses: docker/login-action@v3
@@ -65,32 +133,15 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}${{ matrix.suffix }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
-      - name: API image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
-          target: runtime
+          target: ${{ matrix.target }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      - id: meta-web
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}-web
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
-      - name: Web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: web
-          push: true
-          tags: ${{ steps.meta-web.outputs.tags }}
-          labels: ${{ steps.meta-web.outputs.labels }}

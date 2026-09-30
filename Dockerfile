@@ -2,10 +2,11 @@
 #
 # Multi-stage build:
 #   deps     all dependencies (for building and testing)
-#   build    compiled TypeScript
+#   build    compiled TypeScript and the built web page
 #   test     runs lint, build and tests: docker build --target test
-#   web      the browser interface, served by nginx without root: docker build --target web
-#   runtime  the API: production dependencies and compiled output only (the default target)
+#   web      the web page, served by nginx without root: docker build --target web
+#   runtime  the API only: production dependencies and compiled code (used by docker compose)
+#   app      the API also serving the web page, for a one-container public deploy (default)
 
 FROM node:22-alpine AS base
 WORKDIR /app
@@ -14,11 +15,12 @@ RUN chown node:node /app
 USER node
 
 FROM base AS deps
-RUN mkdir -p packages/engine packages/simulator packages/api packages/web
+RUN mkdir -p packages/engine packages/simulator packages/analytics packages/api packages/web
 # Only the manifests first, so the npm ci layer is cached until dependencies change.
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node packages/engine/package.json packages/engine/
 COPY --chown=node:node packages/simulator/package.json packages/simulator/
+COPY --chown=node:node packages/analytics/package.json packages/analytics/
 COPY --chown=node:node packages/api/package.json packages/api/
 COPY --chown=node:node packages/web/package.json packages/web/
 RUN npm ci
@@ -45,16 +47,18 @@ ENV NODE_ENV=production \
     DATABASE_PATH=/data/slottestyfer.db \
     GAMES_DIR=/app/games
 
-RUN mkdir -p packages/engine packages/simulator packages/api packages/web
+RUN mkdir -p packages/engine packages/simulator packages/analytics packages/api packages/web
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node packages/engine/package.json packages/engine/
 COPY --chown=node:node packages/simulator/package.json packages/simulator/
+COPY --chown=node:node packages/analytics/package.json packages/analytics/
 COPY --chown=node:node packages/api/package.json packages/api/
 COPY --chown=node:node packages/web/package.json packages/web/
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build --chown=node:node /app/packages/engine/dist packages/engine/dist
 COPY --from=build --chown=node:node /app/packages/simulator/dist packages/simulator/dist
+COPY --from=build --chown=node:node /app/packages/analytics/dist packages/analytics/dist
 COPY --from=build --chown=node:node /app/packages/api/dist packages/api/dist
 COPY --chown=node:node games games
 
@@ -69,3 +73,7 @@ HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 CMD ["node", "packages/api/dist/server.js"]
+
+FROM runtime AS app
+COPY --from=build --chown=node:node /app/packages/web/dist web
+ENV STATIC_DIR=/app/web

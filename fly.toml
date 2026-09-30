@@ -1,0 +1,38 @@
+# Fly.io: the all-in-one image (API + web page) with SQLite on a persistent volume.
+#   fly launch --no-deploy --copy-config   (pick a unique app name when asked)
+#   fly volumes create slottestyfer_data --size 1
+#   fly deploy
+app = "slottestyfer"
+primary_region = "mad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  DATABASE_PATH = "/data/slottestyfer.db"
+  MAX_SPINS = "10000000"
+  MAX_LIVE_RUNS = "2"
+  LOG_LEVEL = "info"
+
+[[mounts]]
+  source = "slottestyfer_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpus = 1
