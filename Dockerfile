@@ -9,10 +9,8 @@ COPY package.json package-lock.json ./
 COPY packages/engine/package.json packages/engine/
 RUN npm ci
 
-COPY . .
-
 # Correr como utilizador sem privilégios.
-RUN chown -R node:node /app
+COPY --chown=node:node . .
 USER node
 
 CMD ["npm", "run", "check"]
