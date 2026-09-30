@@ -22,11 +22,11 @@ export function loadGameFiles(dir: string): GameConfig[] {
 }
 
 /** Adds the games that are not in the store yet. Returns the ids that were added. */
-export function seedGames(store: Store, configs: readonly GameConfig[]): string[] {
+export async function seedGames(store: Store, configs: readonly GameConfig[]): Promise<string[]> {
   const added: string[] = [];
   for (const config of configs) {
-    if (!store.getGame(config.id)) {
-      store.addGame(config);
+    if (!(await store.getGame(config.id))) {
+      await store.addGame(config);
       added.push(config.id);
     }
   }

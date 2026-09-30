@@ -32,7 +32,7 @@ export interface SimulationRunner {
    * Called once on startup. Simulations left 'running' by a previous process are marked as
    * failed; the ones still 'queued' are put back in the queue.
    */
-  recover(): void;
+  recover(): Promise<void>;
   /** Resolves when the queue is empty and nothing is running. */
   idle(): Promise<void>;
   /** Stops taking new work. A simulation in progress is left to finish or be recovered. */
@@ -48,22 +48,28 @@ export function createRunner(options: RunnerOptions): SimulationRunner {
   let stopped = false;
 
   const run = async (id: string): Promise<void> => {
-    const simulation = store.getSimulation(id);
+    const simulation = await store.getSimulation(id);
     if (!simulation || simulation.status !== 'queued') return;
 
-    const game = store.getGame(simulation.gameId);
+    const game = await store.getGame(simulation.gameId);
     if (!game) {
-      store.markFailed(id, `game ${simulation.gameId} no longer exists`);
+      await store.markFailed(id, `game ${simulation.gameId} no longer exists`);
       return;
     }
 
-    store.markRunning(id);
+    await store.markRunning(id);
     logger?.info(`simulation ${id}: ${simulation.spins} rounds of ${game.id}`);
+
+    // Progress arrives synchronously after each chunk; the writes are chained so they reach the
+    // database in order and all land before the final result.
+    let progress: Promise<void> = Promise.resolve();
     const simulateOptions: SimulateOptions = {
       spins: simulation.spins,
       seed: simulation.seed,
       workers: options.workers,
-      onProgress: (done) => store.updateProgress(id, done),
+      onProgress: (done) => {
+        progress = progress.then(() => store.updateProgress(id, done)).catch(() => undefined);
+      },
       ...(options.chunkSize === undefined ? {} : { chunkSize: options.chunkSize }),
       ...(options.workerUrl === undefined ? {} : { workerUrl: options.workerUrl }),
     };
@@ -74,11 +80,13 @@ export function createRunner(options: RunnerOptions): SimulationRunner {
         simulation.target === null
           ? null
           : certify(report, simulation.target, simulation.tolerance);
-      store.markDone(id, report, verdict);
+      await progress;
+      await store.markDone(id, report, verdict);
       logger?.info(`simulation ${id}: done, RTP ${(report.rtp * 100).toFixed(3)}%`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      store.markFailed(id, message);
+      await progress;
+      await store.markFailed(id, message);
       logger?.error(`simulation ${id}: failed, ${message}`);
     }
   };
@@ -112,11 +120,11 @@ export function createRunner(options: RunnerOptions): SimulationRunner {
   return {
     enqueue,
 
-    recover() {
-      for (const simulation of store.listSimulationsByStatus('running')) {
-        store.markFailed(simulation.id, INTERRUPTED);
+    async recover() {
+      for (const simulation of await store.listSimulationsByStatus('running')) {
+        await store.markFailed(simulation.id, INTERRUPTED);
       }
-      for (const simulation of store.listSimulationsByStatus('queued')) {
+      for (const simulation of await store.listSimulationsByStatus('queued')) {
         enqueue(simulation.id);
       }
     },

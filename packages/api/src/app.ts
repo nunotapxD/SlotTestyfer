@@ -1,13 +1,21 @@
 /**
  * Builds the Fastify application. Kept separate from server.ts so tests can create an app with
  * an in-memory database and call it with app.inject(), without opening a port.
+ *
+ * Two layouts:
+ * - API only (docker compose, development): routes at /games, /spin, ...; nginx or Vite put the
+ *   web page in front and forward /api/... here without the prefix.
+ * - All in one (public deploy): `staticDir` serves the built web page at /, and the API moves
+ *   under `apiPrefix` (/api), so the same page works unchanged.
  */
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { ENGINE_VERSION } from '@slottestyfer/engine';
 import { ApiError } from './errors.js';
+import { LiveManager } from './live/manager.js';
 import { registerGameRoutes } from './routes/games.js';
+import { registerLiveRoutes } from './routes/live.js';
 import { registerSimulationRoutes } from './routes/simulations.js';
 import { registerSpinRoutes } from './routes/spin.js';
 import { createRunner, type SimulationRunner } from './runner.js';
@@ -21,6 +29,14 @@ export interface AppOptions {
   /** Largest simulation a request may ask for. */
   readonly maxSpins?: number;
   readonly chunkSize?: number;
+  /** Run live simulations in the main thread instead of worker threads (tests only). */
+  readonly inlineLive?: boolean;
+  /** Most live runs active at once. Default 4. */
+  readonly maxLiveRuns?: number;
+  /** Put every API route under this prefix, e.g. '/api'. Default: none. */
+  readonly apiPrefix?: string;
+  /** Serve the built web page from this folder at /. */
+  readonly staticDir?: string;
   /** Fastify logger: false in tests, a level such as 'info' in the server. */
   readonly logger?: boolean | { level: string };
 }
@@ -28,11 +44,13 @@ export interface AppOptions {
 export interface App {
   readonly app: FastifyInstance;
   readonly runner: SimulationRunner;
+  readonly live: LiveManager;
 }
 
 export const DEFAULT_MAX_SPINS = 100_000_000;
 
 export async function buildApp(options: AppOptions): Promise<App> {
+  const prefix = options.apiPrefix ?? '';
   const app = Fastify({
     logger: options.logger ?? false,
     ajv: {
@@ -41,14 +59,22 @@ export async function buildApp(options: AppOptions): Promise<App> {
     },
   });
 
+  const { store } = options;
   const runner = createRunner({
-    store: options.store,
+    store,
     workers: options.workers,
     logger: { info: (m) => app.log.info(m), error: (m) => app.log.error(m) },
     ...(options.chunkSize === undefined ? {} : { chunkSize: options.chunkSize }),
   });
+  const live = new LiveManager({
+    inline: options.inlineLive ?? false,
+    ...(options.maxLiveRuns === undefined ? {} : { maxActive: options.maxLiveRuns }),
+  });
   app.addHook('onReady', async () => runner.recover());
-  app.addHook('onClose', async () => runner.stop());
+  app.addHook('onClose', async () => {
+    runner.stop();
+    await live.close();
+  });
 
   for (const schema of sharedSchemas) app.addSchema(schema);
 
@@ -65,6 +91,7 @@ export async function buildApp(options: AppOptions): Promise<App> {
         { name: 'games', description: 'Game configurations' },
         { name: 'rounds', description: 'Single rounds with fictional credits' },
         { name: 'simulations', description: 'Monte Carlo simulations and certification' },
+        { name: 'live', description: 'Live runs streamed with Server-Sent Events' },
         { name: 'health', description: 'Service status' },
       ],
     },
@@ -74,7 +101,7 @@ export async function buildApp(options: AppOptions): Promise<App> {
         typeof json.$id === 'string' ? json.$id : `def-${i}`,
     },
   });
-  await app.register(swaggerUi, { routePrefix: '/docs' });
+  await app.register(swaggerUi, { routePrefix: `${prefix}/docs` });
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof ApiError) {
@@ -91,24 +118,49 @@ export async function buildApp(options: AppOptions): Promise<App> {
     return reply.code(status).send({ error: error.code ?? 'error', message: error.message });
   });
 
-  app.setNotFoundHandler((request, reply) =>
-    reply
-      .code(404)
-      .send({ error: 'not_found', message: `no route for ${request.method} ${request.url}` }),
+  const health = async () => ({
+    status: 'ok' as const,
+    games: (await store.listGames()).length,
+    database: store.kind,
+  });
+  // Always at the root, for container healthchecks, whatever the prefix.
+  app.get('/health', { schema: healthRoute }, health);
+
+  await app.register(
+    async (api) => {
+      if (prefix) api.get('/health', { schema: healthRoute }, health);
+      registerGameRoutes(api, store);
+      registerSpinRoutes(api, store);
+      registerSimulationRoutes(api, {
+        store,
+        runner,
+        maxSpins: options.maxSpins ?? DEFAULT_MAX_SPINS,
+      });
+      registerLiveRoutes(api, { store, live });
+    },
+    { prefix },
   );
 
-  app.get('/health', { schema: healthRoute }, async () => ({
-    status: 'ok' as const,
-    games: options.store.listGames().length,
-  }));
-
-  registerGameRoutes(app, options.store);
-  registerSpinRoutes(app, options.store);
-  registerSimulationRoutes(app, {
-    store: options.store,
-    runner,
-    maxSpins: options.maxSpins ?? DEFAULT_MAX_SPINS,
+  const notFoundBody = (method: string, url: string) => ({
+    error: 'not_found',
+    message: `no route for ${method} ${url}`,
   });
 
-  return { app, runner };
+  if (options.staticDir) {
+    const { default: fastifyStatic } = await import('@fastify/static');
+    await app.register(fastifyStatic, { root: options.staticDir, prefix: '/' });
+    // Single-page app: any other GET outside the API gets index.html.
+    app.setNotFoundHandler((request, reply) => {
+      const isApi =
+        prefix !== '' && (request.url === prefix || request.url.startsWith(`${prefix}/`));
+      if (request.method === 'GET' && !isApi) return reply.sendFile('index.html');
+      return reply.code(404).send(notFoundBody(request.method, request.url));
+    });
+  } else {
+    app.setNotFoundHandler((request, reply) =>
+      reply.code(404).send(notFoundBody(request.method, request.url)),
+    );
+  }
+
+  return { app, runner, live };
 }
