@@ -8,3 +8,4 @@ export {
   type GameSymbol,
   type Pay,
 } from './config.js';
+export { screenFromStops, spin, type Screen, type SpinResult } from './spin.js';
