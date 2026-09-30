@@ -7,24 +7,28 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
-      - run: npm run typecheck
+      - run: npm run build
       - run: npm test
+      # Certification gate: fails the build if the game stops paying 96% ± 0.5%.
+      # The seed is fixed and the result does not depend on the number of cores, so this is stable.
+      - name: Certify fruits-96
+        run: npm run simulate -- --game games/fruits-96.json --spins 5000000 --seed 42 --target 96
 
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: check
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build test image
         run: docker build -t slottestyfer:ci .
       - name: Run checks in container
