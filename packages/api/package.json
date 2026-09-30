@@ -1,0 +1,20 @@
+{
+  "name": "@slottestyfer/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HTTP API for SlotTestyfer: games, rounds with fictional credits and background simulations.",
+  "type": "module",
+  "main": "./dist/app.js",
+  "types": "./dist/app.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/swagger": "^9.5.1",
+    "@fastify/swagger-ui": "^5.2.3",
+    "@slottestyfer/engine": "0.1.0",
+    "@slottestyfer/simulator": "0.1.0",
+    "fastify": "^5.4.0"
+  }
+}

@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "./packages/engine" }, { "path": "./packages/simulator" }]
+  "references": [
+    { "path": "./packages/engine" },
+    { "path": "./packages/simulator" },
+    { "path": "./packages/api" }
+  ]
 }

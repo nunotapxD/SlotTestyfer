@@ -39,7 +39,10 @@ export function planChunks(spins: number, seed: number, chunkSize = DEFAULT_CHUN
 export interface SimulateOptions {
   readonly spins: number;
   readonly seed: number;
-  /** Worker threads to use. 1 runs everything in the current thread. */
+  /**
+   * Worker threads to use. 0 (the default) runs in the current thread, which blocks it until
+   * the simulation ends: fine for a CLI or a test, not for a server.
+   */
   readonly workers?: number;
   readonly chunkSize?: number;
   /** Location of the compiled worker script. Defaults to worker.js next to this file. */
@@ -50,10 +53,10 @@ export interface SimulateOptions {
 
 export async function simulate(config: GameConfig, options: SimulateOptions): Promise<SimStats> {
   const chunks = planChunks(options.spins, options.seed, options.chunkSize);
-  const workers = Math.min(options.workers ?? 1, chunks.length);
+  const workers = Math.min(options.workers ?? 0, chunks.length);
 
   const results =
-    workers <= 1
+    workers < 1
       ? runSequential(config, chunks, options)
       : await runParallel(config, chunks, workers, options);
 
