@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { niceCeil, scale, verticalBars } from '../src/lib/charts.js';
+import {
+  bandPath,
+  linearScale,
+  linePath,
+  logScale,
+  logTicks,
+  niceCeil,
+  niceTicks,
+  scale,
+  verticalBars,
+} from '../src/lib/charts.js';
 import { parseOptionalInt, parseOptionalPercent } from '../src/lib/form.js';
 import {
   formatCompact,
@@ -144,6 +154,35 @@ describe('charts', () => {
       [0, 100, 100, 0],
       [108, 100, 50, 50],
     ]);
+  });
+
+  it('maps values onto linear and log axes', () => {
+    const x = linearScale([0, 10], [100, 200]);
+    expect([x(0), x(5), x(10)]).toEqual([100, 150, 200]);
+    const lx = logScale([10, 1000], [0, 100]);
+    expect([lx(10), lx(100), lx(1000)].map((v) => Math.round(v))).toEqual([0, 50, 100]);
+  });
+
+  it('picks round ticks', () => {
+    // About 4 ticks with steps of 1, 2 or 5 x 10^n: 0.25 rounds up to 0.5, 0.025 to 0.05.
+    expect(niceTicks(0, 1, 4)).toEqual([0, 0.5, 1]);
+    expect(niceTicks(0.87, 0.97, 4)).toEqual([0.9, 0.95]);
+    expect(niceTicks(0, 1000, 5)).toEqual([0, 200, 400, 600, 800, 1000]);
+    expect(logTicks(100, 20_000)).toEqual([100, 1000, 10_000]);
+  });
+
+  it('builds SVG paths for lines and bands', () => {
+    const upper = [
+      { x: 0, y: 1 },
+      { x: 10, y: 2 },
+    ];
+    const lower = [
+      { x: 0, y: 5 },
+      { x: 10, y: 6 },
+    ];
+    expect(linePath(upper)).toBe('M0.0,1.0L10.0,2.0');
+    expect(bandPath(upper, lower)).toBe('M0.0,1.0L10.0,2.0L10.0,6.0L0.0,5.0Z');
+    expect(bandPath([], [])).toBe('');
   });
 
   it('places values on a scale', () => {

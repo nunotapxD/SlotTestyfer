@@ -2,8 +2,16 @@
  * The game screen: reels, fictional balance, bet, spin, and the winning lines drawn on top.
  * Every round is played by the API (POST /spin); this file only shows it.
  */
-import { api, ApiRequestError, type GameConfig, type GameSummary, type Round } from './api.js';
-import { h, prefersReducedMotion, s } from './dom.js';
+import {
+  api,
+  ApiRequestError,
+  type GameConfig,
+  type GameSummary,
+  type LineWin,
+  type Round,
+  type ScatterWin,
+} from './api.js';
+import { h, prefersReducedMotion, s, wait } from './dom.js';
 import { formatCredits, formatMultiplier } from './lib/format.js';
 import {
   betOptions,
@@ -58,7 +66,19 @@ export function mountGame(
     ...games.map((g) => h('option', { value: g.id }, g.name)),
   );
   const reelsEl = h('div', { class: 'reels', role: 'img', 'aria-label': 'Reels' });
-  const machine = h('div', { class: 'machine' }, reelsEl);
+  const bannerText = h('span', { class: 'fs-text' });
+  const skipButton = h('button', { class: 'link-btn fs-skip', type: 'button' }, 'Skip');
+  const banner = h(
+    'div',
+    { class: 'fs-banner', hidden: true, 'aria-live': 'polite' },
+    bannerText,
+    skipButton,
+  );
+  const machine = h('div', { class: 'machine' }, reelsEl, banner);
+  let skipFeature = false;
+  skipButton.addEventListener('click', () => {
+    skipFeature = true;
+  });
 
   const balanceValue = h('span', { class: 'meter-value' });
   const topUp = h('button', { class: 'link-btn', type: 'button', hidden: true }, 'Top up');
@@ -166,10 +186,12 @@ export function mountGame(
     reelsEl.replaceChildren(...reels);
     reelsEl.style.gridTemplateColumns = `repeat(${screen.length}, var(--cell))`;
     reelsEl.style.setProperty('--rows', String(state.config?.rows ?? 3));
+    // Cells shrink to fit five reels on a phone (see .reels in styles.css).
+    reelsEl.style.setProperty('--reels', String(screen.length));
   };
 
   /** Spins each reel down to the final screen, stopping left to right. */
-  const animateTo = async (final: string[][]) => {
+  const animateTo = async (final: string[][], fast = false) => {
     const config = state.config;
     if (!config || prefersReducedMotion()) {
       setScreen(final);
@@ -189,7 +211,7 @@ export function mountGame(
             // Moving from the bottom of that strip to the top makes the symbols travel downwards.
             const symbols = [
               ...(final[i] ?? []),
-              ...spinningSymbols(config.reels[i] ?? [], 12 + i * 5),
+              ...spinningSymbols(config.reels[i] ?? [], fast ? 6 + i * 2 : 12 + i * 5),
               ...(state.screen[i] ?? []),
             ];
             strip.replaceChildren(...symbols.map((symbol) => symbolCell(symbol)));
@@ -197,7 +219,7 @@ export function mountGame(
             strip.style.transition = 'none';
             strip.style.transform = `translateY(${-distance}px)`;
             void strip.offsetHeight; // apply the start position before animating
-            const duration = 650 + i * 260;
+            const duration = fast ? 300 + i * 110 : 650 + i * 260;
             strip.style.transition = `transform ${duration}ms cubic-bezier(0.18, 0.8, 0.25, 1)`;
             strip.style.transform = 'translateY(0)';
             let finished = false;
@@ -214,7 +236,12 @@ export function mountGame(
     setScreen(final);
   };
 
-  const highlight = (round: Round) => {
+  /** Marks the winning symbols and draws the winning paylines of one spin. */
+  const highlight = (round: {
+    screen: string[][];
+    lineWins: LineWin[];
+    scatterWins: ScatterWin[];
+  }) => {
     const wins = [...round.lineWins, ...round.scatterWins];
     if (wins.length === 0) return;
     machine.classList.add('has-win');
@@ -263,6 +290,17 @@ export function mountGame(
           h('span', { class: 'amount' }, `+${formatCredits(w.win)}`),
         ),
       ),
+      ...(round.freeSpins
+        ? [
+            h(
+              'li',
+              { class: 'fs-line' },
+              h('span', { class: 'swatch', style: 'background: var(--accent)' }),
+              `Free spins: ${round.freeSpins.spins.length} rounds, wins ×${round.freeSpins.multiplier}`,
+              h('span', { class: 'amount' }, `+${formatCredits(round.freeSpins.win)}`),
+            ),
+          ]
+        : []),
     ];
     const replay = h('button', { class: 'link-btn', type: 'button' }, 'Replay this round');
     replay.addEventListener('click', () => void play(round.seed));
@@ -316,6 +354,10 @@ export function mountGame(
         `Line prizes multiply the line bet (bet ÷ ${config.paylines.length}). `,
         hasScatter ? 'Scatter prizes multiply the total bet. ' : '',
         'Wilds replace any regular symbol.',
+        config.freeSpins
+          ? ` ${config.freeSpins.count}+ ${symbolLook(config.freeSpins.symbol).label} anywhere: ` +
+              `${config.freeSpins.spins} free spins, every win ×${config.freeSpins.multiplier}.`
+          : '',
       ),
     );
   };
@@ -343,6 +385,45 @@ export function mountGame(
     renderMeters();
   };
 
+  /** Shows the free spins one after another (all already decided by the API). */
+  const playFeature = async (round: Round) => {
+    const feature = round.freeSpins;
+    if (!feature) return;
+    const total = feature.spins.length;
+    skipFeature = false;
+    banner.hidden = false;
+    bannerText.textContent = `FREE SPINS ×${total} · wins ×${feature.multiplier}`;
+    skipButton.hidden = false;
+    await wait(prefersReducedMotion() ? 0 : 1100);
+
+    let won = 0;
+    for (const [i, spin] of feature.spins.entries()) {
+      if (skipFeature) break;
+      clearHighlights();
+      await animateTo(spin.screen, true);
+      highlight(spin);
+      won += spin.win;
+      bannerText.textContent = `Free spin ${i + 1}/${total} · ×${feature.multiplier} · won ${formatCredits(won)}`;
+      await wait(prefersReducedMotion() ? 0 : spin.win > 0 ? 650 : 280);
+    }
+    if (skipFeature) {
+      const last = feature.spins[total - 1];
+      if (last) {
+        clearHighlights();
+        setScreen(last.screen);
+        highlight(last);
+      }
+    }
+    skipButton.hidden = true;
+    bannerText.textContent = `Free spins won ${formatCredits(feature.win)}`;
+    await wait(prefersReducedMotion() ? 0 : 900);
+    banner.hidden = true;
+    // Back to the base spin, whose wins the round summary lists.
+    clearHighlights();
+    setScreen(round.screen);
+    highlight(round);
+  };
+
   const play = async (seed?: number) => {
     const config = state.config;
     if (!config || state.spinning) return;
@@ -357,11 +438,12 @@ export function mountGame(
     try {
       const round = await api.spin(config.id, bet, seed);
       await animateTo(round.screen);
+      highlight(round);
+      if (round.freeSpins) await playFeature(round);
       state.balance += round.win;
       state.lastRound = round;
       lastWinValue.textContent = formatCredits(round.win);
       lastWinValue.classList.toggle('positive', round.win > 0);
-      highlight(round);
       renderInfo(round);
     } catch (error) {
       state.balance += bet;
