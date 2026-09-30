@@ -3,6 +3,7 @@
   "references": [
     { "path": "./packages/engine" },
     { "path": "./packages/simulator" },
+    { "path": "./packages/analytics" },
     { "path": "./packages/api" }
   ]
 }
