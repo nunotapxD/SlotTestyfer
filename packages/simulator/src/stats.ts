@@ -6,7 +6,7 @@
  * every total an exact integer: merging results from several workers gives exactly the same
  * numbers in any order.
  */
-import type { Evaluation } from '@slottestyfer/engine';
+import type { Evaluation, RoundOutcome } from '@slottestyfer/engine';
 
 /** Upper bounds (exclusive) of the win buckets, as multiples of the total bet. */
 export const HISTOGRAM_EDGES = [1, 2, 5, 20] as const;
@@ -24,8 +24,18 @@ export interface SimStats {
   hits: number;
   /** Biggest single-round win, in line bets. */
   maxWin: number;
-  /** Win per symbol, in line bets. */
+  /** Win per symbol, in line bets (free spins included, multiplier applied). */
   bySymbol: Record<string, number>;
+  /** Line wins in the base spin, in line bets. */
+  baseLineWin: number;
+  /** Scatter wins in the base spin, in line bets. */
+  baseScatterWin: number;
+  /** Everything won in free spins, multiplier applied, in line bets. */
+  freeSpinsWin: number;
+  /** Line wins (base and free spins) that needed at least one wild, in line bets. */
+  wildLineWin: number;
+  /** Rounds that triggered free spins. */
+  triggers: number;
   /** Rounds per bucket of HISTOGRAM_LABELS. */
   histogram: number[];
 }
@@ -39,6 +49,11 @@ export function emptyStats(lines: number): SimStats {
     hits: 0,
     maxWin: 0,
     bySymbol: {},
+    baseLineWin: 0,
+    baseScatterWin: 0,
+    freeSpinsWin: 0,
+    wildLineWin: 0,
+    triggers: 0,
     histogram: HISTOGRAM_LABELS.map(() => 0),
   };
 }
@@ -51,24 +66,41 @@ export function histogramBucket(multiplier: number): number {
   return HISTOGRAM_EDGES.length + 1;
 }
 
-/** Adds one evaluated round to the totals. */
-export function recordRound(stats: SimStats, evaluation: Evaluation): void {
-  const win = evaluation.winLineBets;
+/** Adds one spin's wins per symbol and per kind, scaled by a multiplier. */
+function addSpin(stats: SimStats, evaluation: Evaluation, multiplier: number): void {
+  for (const lineWin of evaluation.lineWins) {
+    const win = lineWin.pays * multiplier;
+    stats.bySymbol[lineWin.symbol] = (stats.bySymbol[lineWin.symbol] ?? 0) + win;
+    if (lineWin.wilds > 0) stats.wildLineWin += win;
+  }
+  for (const scatterWin of evaluation.scatterWins) {
+    stats.bySymbol[scatterWin.symbol] =
+      (stats.bySymbol[scatterWin.symbol] ?? 0) + scatterWin.pays * stats.lines * multiplier;
+  }
+}
+
+/** Adds one complete round (base spin and any free spins) to the totals. */
+export function recordRound(stats: SimStats, outcome: RoundOutcome): void {
+  const win = outcome.winLineBets;
   stats.rounds += 1;
   stats.totalWin += win;
   stats.sumSquares += win * win;
   if (win > 0) stats.hits += 1;
   if (win > stats.maxWin) stats.maxWin = win;
 
-  for (const lineWin of evaluation.lineWins) {
-    stats.bySymbol[lineWin.symbol] = (stats.bySymbol[lineWin.symbol] ?? 0) + lineWin.pays;
-  }
-  for (const scatterWin of evaluation.scatterWins) {
-    stats.bySymbol[scatterWin.symbol] =
-      (stats.bySymbol[scatterWin.symbol] ?? 0) + scatterWin.pays * stats.lines;
+  const base = outcome.base.evaluation;
+  addSpin(stats, base, 1);
+  for (const lineWin of base.lineWins) stats.baseLineWin += lineWin.pays;
+  for (const scatterWin of base.scatterWins) stats.baseScatterWin += scatterWin.pays * stats.lines;
+
+  const feature = outcome.freeSpins;
+  if (feature) {
+    stats.triggers += 1;
+    stats.freeSpinsWin += feature.winLineBets;
+    for (const spin of feature.spins) addSpin(stats, spin.evaluation, feature.multiplier);
   }
 
-  const bucket = histogramBucket(evaluation.multiplier);
+  const bucket = histogramBucket(outcome.multiplier);
   stats.histogram[bucket] = (stats.histogram[bucket] ?? 0) + 1;
 }
 
@@ -89,6 +121,11 @@ export function mergeStats(a: SimStats, b: SimStats): SimStats {
     hits: a.hits + b.hits,
     maxWin: Math.max(a.maxWin, b.maxWin),
     bySymbol,
+    baseLineWin: a.baseLineWin + b.baseLineWin,
+    baseScatterWin: a.baseScatterWin + b.baseScatterWin,
+    freeSpinsWin: a.freeSpinsWin + b.freeSpinsWin,
+    wildLineWin: a.wildLineWin + b.wildLineWin,
+    triggers: a.triggers + b.triggers,
     histogram: a.histogram.map((count, i) => count + (b.histogram[i] ?? 0)),
   };
 }

@@ -26,6 +26,11 @@ export function analyzeExact(
   config: GameConfig,
   maxCombinations = DEFAULT_MAX_COMBINATIONS,
 ): ExactResult {
+  if (config.freeSpins) {
+    throw new RangeError(
+      'games with free spins cannot be enumerated spin by spin; use computeRtp() or a simulation',
+    );
+  }
   const combinations = countCombinations(config);
   if (combinations > maxCombinations) {
     throw new RangeError(
@@ -39,7 +44,14 @@ export function analyzeExact(
 
   // Odometer: advance the last reel, carry into the previous one when it wraps.
   for (let done = 0; done < combinations; done++) {
-    recordRound(stats, evaluator(screenFromStops(config, stops)));
+    const screen = screenFromStops(config, stops);
+    const evaluation = evaluator(screen);
+    recordRound(stats, {
+      base: { stops, screen, evaluation },
+      freeSpins: null,
+      winLineBets: evaluation.winLineBets,
+      multiplier: evaluation.multiplier,
+    });
     for (let reel = stops.length - 1; reel >= 0; reel--) {
       const next = (stops[reel] ?? 0) + 1;
       if (next < (config.reels[reel]?.length ?? 0)) {
