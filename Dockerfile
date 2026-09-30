@@ -4,7 +4,8 @@
 #   deps     all dependencies (for building and testing)
 #   build    compiled TypeScript
 #   test     runs lint, build and tests: docker build --target test
-#   runtime  production dependencies and compiled output only (the default target)
+#   web      the browser interface, served by nginx without root: docker build --target web
+#   runtime  the API: production dependencies and compiled output only (the default target)
 
 FROM node:22-alpine AS base
 WORKDIR /app
@@ -13,12 +14,13 @@ RUN chown node:node /app
 USER node
 
 FROM base AS deps
-RUN mkdir -p packages/engine packages/simulator packages/api
+RUN mkdir -p packages/engine packages/simulator packages/api packages/web
 # Only the manifests first, so the npm ci layer is cached until dependencies change.
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node packages/engine/package.json packages/engine/
 COPY --chown=node:node packages/simulator/package.json packages/simulator/
 COPY --chown=node:node packages/api/package.json packages/api/
+COPY --chown=node:node packages/web/package.json packages/web/
 RUN npm ci
 
 FROM deps AS build
@@ -28,6 +30,13 @@ RUN npm run build
 FROM build AS test
 CMD ["npm", "run", "check"]
 
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS web
+COPY packages/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/packages/web/dist /usr/share/nginx/html
+EXPOSE 8080
+HEALTHCHECK --interval=5s --timeout=3s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1
+
 FROM base AS runtime
 ENV NODE_ENV=production \
     NODE_OPTIONS=--disable-warning=ExperimentalWarning \
@@ -36,11 +45,12 @@ ENV NODE_ENV=production \
     DATABASE_PATH=/data/slottestyfer.db \
     GAMES_DIR=/app/games
 
-RUN mkdir -p packages/engine packages/simulator packages/api
+RUN mkdir -p packages/engine packages/simulator packages/api packages/web
 COPY --chown=node:node package.json package-lock.json ./
 COPY --chown=node:node packages/engine/package.json packages/engine/
 COPY --chown=node:node packages/simulator/package.json packages/simulator/
 COPY --chown=node:node packages/api/package.json packages/api/
+COPY --chown=node:node packages/web/package.json packages/web/
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build --chown=node:node /app/packages/engine/dist packages/engine/dist
