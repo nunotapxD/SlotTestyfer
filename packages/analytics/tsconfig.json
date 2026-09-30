@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    // Node types only for cli.ts; everything exported from index.ts is pure and runs in a browser.
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "references": [{ "path": "../engine" }, { "path": "../simulator" }]
+}
