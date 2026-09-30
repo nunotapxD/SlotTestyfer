@@ -25,6 +25,23 @@ services:
       retries: 3
     restart: unless-stopped
 
+  web:
+    build:
+      context: .
+      target: web
+    image: slottestyfer-web:local
+    ports:
+      - '${WEB_PORT:-8080}:8080'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/']
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
   # One-off simulations from the command line, with the JSON report saved in ./reports:
   #   docker compose run --rm simulator
   #   docker compose run --rm simulator --game games/fruits-88.json --spins 10e6 --target 96

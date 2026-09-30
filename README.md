@@ -6,6 +6,8 @@ PASS / FAIL / INCONCLUSIVE verdict against a target RTP, the way a game is check
 
 > Fictional credits only. There is no real money, no player accounts and no payments.
 
+![SlotTestyfer: a winning round, and a 10-million-round simulation that passes a 96% ± 0.5% check](docs/screenshot.png)
+
 ## Status
 
 | Phase | Scope                                                          | State |
@@ -14,7 +16,8 @@ PASS / FAIL / INCONCLUSIVE verdict against a target RTP, the way a game is check
 | 1     | Game engine: seeded RNG, config, spin, paylines, wild, scatter | done  |
 | 2     | Monte Carlo simulator, exact RTP, worker threads, verdict, CLI | done  |
 | 3     | Fastify API, SQLite, background simulations, OpenAPI, Docker   | done  |
-| 4     | Web interface: reels and results dashboard                     | next  |
+| 4     | Web interface: reels, balance, simulator dashboard             | done  |
+| 4B    | Data analysis: sessions, drawdowns, percentiles                | next  |
 
 ## Quick start
 
@@ -36,6 +39,22 @@ Volatility     2.133 (std dev per round, in total bets)
 ...
 Verdict        PASS  target 96.00% ± 0.50%: confidence interval inside the range
 ```
+
+## Web interface
+
+```bash
+npm run api     # terminal 1: the API on :3000
+npm run web     # terminal 2: the interface on http://localhost:5173
+```
+
+- **Play**: reels, a fictional balance of 100.00, bet per line, winning paylines drawn on the reels,
+  the round's seed and a button to replay it exactly.
+- **Simulate**: pick a game and a number of rounds, follow the progress, and read the report: RTP
+  with its 95% confidence interval drawn against the allowed range, PASS / FAIL / INCONCLUSIVE, hit
+  frequency, volatility, the win distribution and how much each symbol adds to the RTP.
+
+Plain TypeScript and Vite, no framework. The page always calls `/api`, which Vite (in
+development) or nginx (in Docker) forwards to the API, so there is no CORS to configure.
 
 ## API
 
@@ -70,7 +89,7 @@ the next start and anything still queued runs.
 ## Docker
 
 ```bash
-docker compose up -d                   # API with a healthcheck and a volume for the database
+docker compose up -d                   # web on :8080 and API on :3000, with healthchecks
 docker compose run --rm simulator      # one-off simulation, JSON report in ./reports
 docker build --target test -t slottestyfer:test . && docker run --rm slottestyfer:test
 ```
@@ -95,11 +114,15 @@ packages/
 │   exact.ts      exact RTP by playing every stop combination
 │   simulate.ts   chunking and the worker thread pool
 │   cli.ts        command line
-└─ api/         HTTP API (Fastify)
-    store.ts      SQLite persistence (node:sqlite) behind a Store interface
-    runner.ts     background simulation queue
-    app.ts        routes, validation, errors, OpenAPI
-    server.ts     configuration from the environment, graceful shutdown
+├─ api/         HTTP API (Fastify)
+│   store.ts      SQLite persistence (node:sqlite) behind a Store interface
+│   runner.ts     background simulation queue
+│   app.ts        routes, validation, errors, OpenAPI
+│   server.ts     configuration from the environment, graceful shutdown
+└─ web/         browser interface (TypeScript + Vite, served by nginx in Docker)
+    game.ts       reels, balance, winning lines
+    simulator.ts  simulation form, progress, report charts
+    lib/          pure helpers (formatting, geometry, charts), unit tested
 games/          game configurations (JSON)
 ```
 

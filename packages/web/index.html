@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="SlotTestyfer: a slot game engine and RTP lab. Play rounds and run Monte Carlo simulations with fictional credits."
+    />
+    <title>SlotTestyfer</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>SlotTestyfer</h1>
+          <p>Slot engine &amp; RTP lab</p>
+        </div>
+      </div>
+      <p class="notice" role="note">
+        <strong>Fictional credits only.</strong> No real money, no accounts, no payments.
+      </p>
+    </header>
+
+    <div class="api-error" id="api-error" role="alert" hidden></div>
+
+    <main class="layout">
+      <section class="panel" id="play" aria-labelledby="play-title"></section>
+      <section class="panel" id="simulate" aria-labelledby="simulate-title"></section>
+    </main>
+
+    <footer class="footer">
+      <span>Seeded mulberry32 RNG · Monte Carlo on worker threads · exact results per seed</span>
+      <a href="/api/docs" target="_blank" rel="noopener">API docs</a>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

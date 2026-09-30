@@ -1,0 +1,15 @@
+{
+  "name": "@slottestyfer/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser interface for SlotTestyfer: play rounds and run simulations.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}

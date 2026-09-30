@@ -11,7 +11,7 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && npm run build -w @slottestyfer/web",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "simulate": "tsc -b && node packages/simulator/dist/cli.js",
     "api": "tsc -b && node --disable-warning=ExperimentalWarning packages/api/dist/server.js",
+    "web": "npm run dev -w @slottestyfer/web",
     "check": "npm run lint && npm run format:check && npm run build && npm test"
   },
   "devDependencies": {
