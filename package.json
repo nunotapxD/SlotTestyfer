@@ -12,13 +12,13 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run lint && npm run format:check && npm run typecheck && npm test"
+    "simulate": "tsc -b && node packages/simulator/dist/cli.js",
+    "check": "npm run lint && npm run format:check && npm run build && npm test"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
